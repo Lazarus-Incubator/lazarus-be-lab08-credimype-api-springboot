@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: creditflow-postgres
+    environment:
+      POSTGRES_DB: creditflow
+      POSTGRES_USER: creditflow
+      POSTGRES_PASSWORD: creditflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - creditflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U creditflow -d creditflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  creditflow-postgres-data:

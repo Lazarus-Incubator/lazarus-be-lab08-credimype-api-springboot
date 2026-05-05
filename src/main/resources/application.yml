@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: creditflow-mype-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/creditflow}
+    username: ${DB_USERNAME:creditflow}
+    password: ${DB_PASSWORD:creditflow}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+server:
+  error:
+    include-message: never
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-me-creditflow-secret-key-change-me}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+logging:
+  level:
+    org.springframework.security: INFO
+    org.flywaydb: INFO

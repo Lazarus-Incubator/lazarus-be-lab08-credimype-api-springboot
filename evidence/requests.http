@@ -1,0 +1,306 @@
+@baseUrl = http://localhost:8080
+@json = application/json
+
+### Sesiones base
+
+### Login como institution admin
+# @name loginInstitutionAdmin
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "admin.andina@creditflow.pe",
+  "password": "password123"
+}
+
+### Login como branch officer
+# @name loginBranchOfficer
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "oficial.lima@creditflow.pe",
+  "password": "password123"
+}
+
+### Login como risk officer
+# @name loginRiskOfficer
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "riesgo.andina@creditflow.pe",
+  "password": "password123"
+}
+
+### Login como committee member
+# @name loginCommitteeMember
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "comite.andina@creditflow.pe",
+  "password": "password123"
+}
+
+### Login como operations officer
+# @name loginOperationsOfficer
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "operaciones.andina@creditflow.pe",
+  "password": "password123"
+}
+
+### Login como auditor
+# @name loginAuditor
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "auditor.andina@creditflow.pe",
+  "password": "password123"
+}
+
+### Login como admin de otra institucion
+# @name loginOtherInstitutionAdmin
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "admin.progreso@creditflow.pe",
+  "password": "password123"
+}
+
+@institutionAdminToken = {{loginInstitutionAdmin.response.body.token}}
+@branchOfficerToken = {{loginBranchOfficer.response.body.token}}
+@riskOfficerToken = {{loginRiskOfficer.response.body.token}}
+@committeeToken = {{loginCommitteeMember.response.body.token}}
+@operationsOfficerToken = {{loginOperationsOfficer.response.body.token}}
+@auditorToken = {{loginAuditor.response.body.token}}
+@otherInstitutionAdminToken = {{loginOtherInstitutionAdmin.response.body.token}}
+
+### Perfil autenticado
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{institutionAdminToken}}
+
+### Catalogos base
+GET {{baseUrl}}/api/branches
+Authorization: Bearer {{institutionAdminToken}}
+
+###
+GET {{baseUrl}}/api/credit-products
+Authorization: Bearer {{institutionAdminToken}}
+
+### Listado operativo
+GET {{baseUrl}}/api/credit-applications?from=2026-05-01&to=2026-05-05
+Authorization: Bearer {{institutionAdminToken}}
+
+### Revision multi-tenant
+GET {{baseUrl}}/api/credit-applications/5
+Authorization: Bearer {{institutionAdminToken}}
+
+###
+GET {{baseUrl}}/api/credit-applications/5
+Authorization: Bearer {{otherInstitutionAdminToken}}
+
+### Crear borrower
+# @name createBorrower
+POST {{baseUrl}}/api/borrowers
+Authorization: Bearer {{branchOfficerToken}}
+Content-Type: {{json}}
+
+{
+  "documentType": "RUC",
+  "documentNumber": "20999988877",
+  "legalName": "Ferreteria Nueva Ruta S.A.C.",
+  "tradeName": "Nueva Ruta",
+  "economicActivity": "Venta de materiales de construccion",
+  "monthlyRevenue": 21400.00
+}
+
+@borrowerId = {{createBorrower.response.body.id}}
+
+### Originacion base
+# @name createApplication
+POST {{baseUrl}}/api/credit-applications
+Authorization: Bearer {{branchOfficerToken}}
+Content-Type: {{json}}
+
+{
+  "branchId": 1,
+  "borrowerId": {{borrowerId}},
+  "productId": 1,
+  "requestedAmount": 24000.00,
+  "termMonths": 12,
+  "purpose": "Capital de trabajo para reforzar compras de temporada"
+}
+
+@applicationId = {{createApplication.response.body.id}}
+
+### Originacion asistida
+# @name createApplicationOtherBranch
+POST {{baseUrl}}/api/credit-applications
+Authorization: Bearer {{branchOfficerToken}}
+Content-Type: {{json}}
+
+{
+  "branchId": 2,
+  "borrowerId": {{borrowerId}},
+  "productId": 1,
+  "requestedAmount": 16000.00,
+  "termMonths": 10,
+  "purpose": "Reposicion de inventario en otra sede operativa"
+}
+
+@crossBranchApplicationId = {{createApplicationOtherBranch.response.body.id}}
+
+### Submit
+POST {{baseUrl}}/api/credit-applications/{{applicationId}}/submit
+Authorization: Bearer {{branchOfficerToken}}
+
+### Start review
+POST {{baseUrl}}/api/credit-applications/{{applicationId}}/start-review
+Authorization: Bearer {{institutionAdminToken}}
+
+### Record risk assessment
+POST {{baseUrl}}/api/credit-applications/{{applicationId}}/risk-assessment
+Authorization: Bearer {{riskOfficerToken}}
+Content-Type: {{json}}
+
+{
+  "score": 82,
+  "debtToIncomeRatio": 0.29,
+  "flags": ["stable_sales", "good_rotation"],
+  "recommendation": "APPROVE"
+}
+
+### Approve
+POST {{baseUrl}}/api/credit-applications/{{applicationId}}/approve
+Authorization: Bearer {{institutionAdminToken}}
+Content-Type: {{json}}
+
+{
+  "approvedAmount": 23000.00
+}
+
+### Create disbursement order
+# @name createDisbursementOrder
+POST {{baseUrl}}/api/credit-applications/{{applicationId}}/disbursement-orders
+Authorization: Bearer {{operationsOfficerToken}}
+Content-Type: {{json}}
+
+{
+  "destinationBank": "BCP",
+  "destinationAccount": "193-000221-44"
+}
+
+@disbursementOrderId = {{createDisbursementOrder.response.body.id}}
+
+### Execute disbursement
+POST {{baseUrl}}/api/disbursement-orders/{{disbursementOrderId}}/execute
+Authorization: Bearer {{operationsOfficerToken}}
+Idempotency-Key: cfm-http-001
+
+### Reintento con la misma key
+POST {{baseUrl}}/api/disbursement-orders/{{disbursementOrderId}}/execute
+Authorization: Bearer {{operationsOfficerToken}}
+Idempotency-Key: cfm-http-001
+
+### Reuso de la misma key sobre otra orden ya semillada
+POST {{baseUrl}}/api/disbursement-orders/1/execute
+Authorization: Bearer {{operationsOfficerToken}}
+Idempotency-Key: cfm-http-001
+
+### Flujo alternativo de comite
+# @name createCommitteeApplication
+POST {{baseUrl}}/api/credit-applications
+Authorization: Bearer {{branchOfficerToken}}
+Content-Type: {{json}}
+
+{
+  "branchId": 1,
+  "borrowerId": {{borrowerId}},
+  "productId": 1,
+  "requestedAmount": 12000.10,
+  "termMonths": 12,
+  "purpose": "Renovacion de stock de campaña"
+}
+
+@committeeApplicationId = {{createCommitteeApplication.response.body.id}}
+
+###
+POST {{baseUrl}}/api/credit-applications/{{committeeApplicationId}}/submit
+Authorization: Bearer {{branchOfficerToken}}
+
+###
+POST {{baseUrl}}/api/credit-applications/{{committeeApplicationId}}/start-review
+Authorization: Bearer {{institutionAdminToken}}
+
+###
+POST {{baseUrl}}/api/credit-applications/{{committeeApplicationId}}/risk-assessment
+Authorization: Bearer {{riskOfficerToken}}
+Content-Type: {{json}}
+
+{
+  "score": 25,
+  "debtToIncomeRatio": 0.71,
+  "flags": ["late_supplier_payments", "high_utilization"],
+  "recommendation": "REVIEW_COMMITTEE"
+}
+
+###
+POST {{baseUrl}}/api/credit-applications/{{committeeApplicationId}}/send-to-committee
+Authorization: Bearer {{institutionAdminToken}}
+
+###
+POST {{baseUrl}}/api/credit-applications/{{committeeApplicationId}}/approve
+Authorization: Bearer {{committeeToken}}
+Content-Type: {{json}}
+
+{
+  "approvedAmount": 12000.20
+}
+
+### Caso heredado para revision de expediente
+GET {{baseUrl}}/api/credit-applications/5
+Authorization: Bearer {{committeeToken}}
+
+###
+POST {{baseUrl}}/api/credit-applications/5/approve
+Authorization: Bearer {{committeeToken}}
+Content-Type: {{json}}
+
+{
+  "approvedAmount": 84000.00
+}
+
+### Validaciones recomendadas
+POST {{baseUrl}}/api/credit-applications/{{crossBranchApplicationId}}/reject
+Authorization: Bearer {{institutionAdminToken}}
+Content-Type: {{json}}
+
+{
+  "reason": "     "
+}
+
+### Seguimiento operativo
+POST {{baseUrl}}/api/credit-applications/2/cancel
+Authorization: Bearer {{auditorToken}}
+
+### Auditoria y reportes
+GET {{baseUrl}}/api/audit
+Authorization: Bearer {{institutionAdminToken}}
+
+###
+GET {{baseUrl}}/api/reports/credit-pipeline
+Authorization: Bearer {{institutionAdminToken}}
+
+###
+GET {{baseUrl}}/api/reports/credit-pipeline
+Authorization: Bearer {{otherInstitutionAdminToken}}
+
+###
+GET {{baseUrl}}/api/reports/risk-summary
+Authorization: Bearer {{institutionAdminToken}}
